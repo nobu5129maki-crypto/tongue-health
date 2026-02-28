@@ -421,43 +421,63 @@
       };
     }
 
-    // TCM-based tongue diagnosis
+    // TCM-based tongue diagnosis (strict mode: より厳格な判定で誤診を防止)
     function diagnoseTongue(analysis) {
       const { hsv, rgb } = analysis;
       const { h, s, v } = hsv;
       const { r, g, b } = rgb;
 
-      const results = [];
+      // Neutral/white detection: 白・灰・照明の影響を広く判定
+      const maxRGB = Math.max(r, g, b);
+      const minRGB = Math.min(r, g, b);
+      const colorSpread = maxRGB - minRGB;
 
-      // Color classification based on TCM
+      // 彩度低・RGB均一 → 白・灰・ベージュ（健康とみなす）
+      const isNeutral = s < 25 && colorSpread < 55;
+      // 明るい白っぽい領域
+      const isBrightNeutral = v > 70 && s < 32 && colorSpread < 65;
+
+      if (isNeutral || isBrightNeutral) {
+        return {
+          condition: 'healthy',
+          title: '淡紅色（健康）',
+          description: '検出された色は中性に近く、正常な淡紅色の範囲内です。舌を枠内にしっかり入れて撮影すると、より正確な診断ができます。',
+          recommendations: ['バランスの良い食事を心がける', '適度な運動を続ける', '十分な睡眠を取る'],
+          analysis
+        };
+      }
+
+      // デフォルトは健康。明確な証拠がある場合のみ異常と判定
       let condition = 'healthy';
       let title = '淡紅色（健康）';
       let description = '舌の色は正常な淡紅色です。気血の巡りが良好で、体のバランスが取れている状態と考えられます。';
       let recs = ['バランスの良い食事を心がける', '適度な運動を続ける', '十分な睡眠を取る'];
 
-      // Red/Dark red - Heat (熱)
-      if (r > 180 && g < 120 && b < 120) {
+      const redDominance = (r - g) + (r - b);
+
+      // 赤色（熱証）: 非常に明確な赤のみ
+      if (r > 195 && g < 105 && b < 105 && redDominance > 120 && s > 30) {
         condition = 'heat';
         title = '赤色（熱証）';
         description = '舌が赤みを帯びています。体内に熱がこもっている可能性があります。炎症、のぼせ、口の渇きなどが考えられます。';
         recs = ['辛いもの・脂っこいものを控える', '水分を十分に取る', '涼しい環境で過ごす', 'ストレスを減らす'];
       }
-      // Pale - Cold/Deficiency (寒・虚)
-      else if (r < 140 && g < 130 && v < 70) {
+      // 淡白色（寒証・虚証）: 明確な淡さ
+      else if (r < 130 && g < 120 && v < 65 && colorSpread < 40) {
         condition = 'cold';
         title = '淡白色（寒証・虚証）';
         description = '舌の色が淡いです。体の冷え、気血の不足、疲労が考えられます。貧血や体力低下の可能性も。';
         recs = ['体を温める食事（生姜、根菜類）', '冷たい飲食物を控える', '十分な休息を取る', '軽い運動で血行を促進'];
       }
-      // Purple/Dark - Blood stagnation (瘀血)
-      else if ((h >= 260 && h <= 320 && v < 55) || (r < 130 && b > r && b > g && v < 60)) {
+      // 暗紫色（瘀血）: 紫が明確な場合のみ
+      else if ((h >= 265 && h <= 315 && v < 50 && s > 25) || (r < 115 && g < 100 && b > r + 15 && v < 55)) {
         condition = 'stagnation';
         title = '暗紫色（瘀血）';
         description = '舌に紫がかった色が見られます。血行不良、血液の停滞が考えられます。肩こり、冷え、痛みなどに注意。';
         recs = ['血行を良くする食材（玉ねぎ、にんにく）', '適度な運動で血流を改善', '入浴で体を温める', 'ストレッチを習慣に'];
       }
-      // Slightly red - Mild heat
-      else if (r > 160 && r > g && r > b) {
+      // やや赤色: 赤の優位性を厳格に
+      else if ((r - g) > 55 && (r - b) > 55 && s > 28 && redDominance > 90) {
         condition = 'heat';
         title = 'やや赤色（軽い熱）';
         description = '舌に軽い赤みがあります。少し熱がこもっている可能性があります。';
