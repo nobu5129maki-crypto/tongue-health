@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>舌健康診断 - 中医学に基づく舌診断アプリ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0f1419;
+      --bg-secondary: #1a2332;
+      --bg-card: #243447;
+      --accent: #e8b86d;
+      --accent-soft: #c9a055;
+      --text-primary: #f5f5f5;
+      --text-secondary: #a8b2c1;
+      --success: #7cb342;
+      --warning: #ffb74d;
+      --danger: #e57373;
+      --info: #64b5f6;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Noto Sans JP', sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      background-image: 
+        radial-gradient(ellipse at 20% 20%, rgba(232, 184, 109, 0.08) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 80%, rgba(100, 181, 246, 0.05) 0%, transparent 50%);
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 600;
+      color: var(--accent);
+      letter-spacing: 0.05em;
+      margin-bottom: 0.5rem;
+    }
+
+    .subtitle {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      font-weight: 300;
+    }
+
+    .camera-section {
+      background: var(--bg-secondary);
+      border-radius: 16px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      border: 1px solid rgba(232, 184, 109, 0.15);
+    }
+
+    .video-container {
+      position: relative;
+      width: 100%;
+      max-width: 400px;
+      margin: 0 auto 1rem;
+      border-radius: 12px;
+      overflow: hidden;
+      aspect-ratio: 4/3;
+      background: #000;
+    }
+
+    #video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+    }
+
+    .tongue-guide {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 60%;
+      height: 45%;
+      border: 2px dashed rgba(232, 184, 109, 0.5);
+      border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+      pointer-events: none;
+    }
+
+    .tongue-guide::after {
+      content: '舌をこの枠内に';
+      position: absolute;
+      bottom: -28px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.75rem;
+      color: var(--accent);
+      white-space: nowrap;
+    }
+
+    .controls {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    button {
+      font-family: inherit;
+      font-size: 0.95rem;
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-weight: 500;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent-soft));
+      color: var(--bg-primary);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 20px rgba(232, 184, 109, 0.4);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-secondary {
+      background: var(--bg-card);
+      color: var(--text-primary);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255,255,255,0.05);
+    }
+
+    .result-section {
+      display: none;
+      margin-top: 1.5rem;
+    }
+
+    .result-section.visible {
+      display: block;
+      animation: fadeIn 0.4s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .captured-preview {
+      width: 100%;
+      max-width: 200px;
+      border-radius: 12px;
+      margin: 0 auto 1rem;
+      display: block;
+      border: 2px solid var(--accent);
+    }
+
+    .diagnosis-card {
+      background: var(--bg-card);
+      border-radius: 12px;
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+      border-left: 4px solid var(--accent);
+    }
+
+    .diagnosis-card.healthy { border-left-color: var(--success); }
+    .diagnosis-card.heat { border-left-color: var(--danger); }
+    .diagnosis-card.cold { border-left-color: var(--info); }
+    .diagnosis-card.stagnation { border-left-color: #9c27b0; }
+
+    .diagnosis-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .diagnosis-desc {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    .color-indicator {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.3);
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .stat-item {
+      background: var(--bg-secondary);
+      padding: 1rem;
+      border-radius: 10px;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    .stat-label {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      margin-top: 0.25rem;
+    }
+
+    .recommendations {
+      margin-top: 1rem;
+      padding: 1rem;
+      background: rgba(232, 184, 109, 0.08);
+      border-radius: 10px;
+      border: 1px solid rgba(232, 184, 109, 0.2);
+    }
+
+    .recommendations h3 {
+      font-size: 0.95rem;
+      color: var(--accent);
+      margin-bottom: 0.75rem;
+    }
+
+    .recommendations ul {
+      list-style: none;
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      line-height: 1.8;
+    }
+
+    .recommendations li::before {
+      content: '•';
+      color: var(--accent);
+      margin-right: 0.5rem;
+    }
+
+    .error-msg {
+      background: rgba(229, 115, 115, 0.15);
+      color: var(--danger);
+      padding: 1rem;
+      border-radius: 10px;
+      margin: 1rem 0;
+      font-size: 0.9rem;
+    }
+
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      vertical-align: middle;
+      margin-right: 0.5rem;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    footer {
+      text-align: center;
+      margin-top: 2rem;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>舌健康診断</h1>
+      <p class="subtitle">中医学（東洋医学）に基づく舌診断 — カメラで舌を撮影して健康状態をチェック</p>
+    </header>
+
+    <section class="camera-section">
+      <div class="video-container">
+        <video id="video" autoplay playsinline></video>
+        <div class="tongue-guide"></div>
+      </div>
+
+      <div id="errorMsg" class="error-msg" style="display: none;"></div>
+
+      <div class="controls">
+        <button id="startBtn" class="btn-primary">カメラを起動</button>
+        <button id="captureBtn" class="btn-primary" disabled>診断する</button>
+        <button id="retakeBtn" class="btn-secondary" style="display: none;">撮り直す</button>
+      </div>
+    </section>
+
+    <section id="resultSection" class="result-section">
+      <img id="capturedImg" class="captured-preview" alt="撮影した舌">
+      <div id="diagnosisResult"></div>
+      <div id="statsGrid" class="stats-grid"></div>
+      <div id="recommendations" class="recommendations"></div>
+    </section>
+  </div>
+
+  <footer>
+    この診断は参考情報です。体調に不安がある場合は医療機関を受診してください。
+  </footer>
+
+  <script>
+    const video = document.getElementById('video');
+    const startBtn = document.getElementById('startBtn');
+    const captureBtn = document.getElementById('captureBtn');
+    const retakeBtn = document.getElementById('retakeBtn');
+    const errorMsg = document.getElementById('errorMsg');
+    const resultSection = document.getElementById('resultSection');
+    const capturedImg = document.getElementById('capturedImg');
+    const diagnosisResult = document.getElementById('diagnosisResult');
+    const statsGrid = document.getElementById('statsGrid');
+    const recommendations = document.getElementById('recommendations');
+
+    let stream = null;
+
+    // RGB to HSV conversion
+    function rgbToHsv(r, g, b) {
+      r /= 255; g /= 255; b /= 255;
+      const max = Math.max(r, g, b), min = Math.min(r, g, b);
+      let h, s, v = max;
+      const d = max - min;
+      s = max === 0 ? 0 : d / max;
+      if (max === min) h = 0;
+      else {
+        switch (max) {
+          case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+          case g: h = (b - r) / d + 2; break;
+          default: h = (r - g) / d + 4;
+        }
+        h /= 6;
+      }
+      return { h: h * 360, s: s * 100, v: v * 100 };
+    }
+
+    // Extract tongue region and analyze colors (center ellipse)
+    function analyzeTongueImage(canvas) {
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width;
+      const h = canvas.height;
+      const cx = w / 2;
+      const cy = h / 2;
+      const rx = w * 0.25;
+      const ry = h * 0.2;
+
+      const imageData = ctx.getImageData(0, 0, w, h);
+      const data = imageData.data;
+      let rSum = 0, gSum = 0, bSum = 0;
+      let count = 0;
+
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const dx = (x - cx) / rx;
+          const dy = (y - cy) / ry;
+          if (dx * dx + dy * dy <= 1) {
+            const i = (y * w + x) * 4;
+            const r = data[i], g = data[i + 1], b = data[i + 2];
+            const gray = (r + g + b) / 3;
+            if (gray > 30 && gray < 240) {
+              rSum += r;
+              gSum += g;
+              bSum += b;
+              count++;
+            }
+          }
+        }
+      }
+
+      if (count === 0) return null;
+
+      const avgR = Math.round(rSum / count);
+      const avgG = Math.round(gSum / count);
+      const avgB = Math.round(bSum / count);
+      const hsv = rgbToHsv(avgR, avgG, avgB);
+
+      return {
+        rgb: { r: avgR, g: avgG, b: avgB },
+        hsv,
+        colorHex: '#' + [avgR, avgG, avgB].map(x => x.toString(16).padStart(2, '0')).join('')
+      };
+    }
+
+    // TCM-based tongue diagnosis
+    function diagnoseTongue(analysis) {
+      const { hsv, rgb } = analysis;
+      const { h, s, v } = hsv;
+      const { r, g, b } = rgb;
+
+      const results = [];
+
+      // Color classification based on TCM
+      let condition = 'healthy';
+      let title = '淡紅色（健康）';
+      let description = '舌の色は正常な淡紅色です。気血の巡りが良好で、体のバランスが取れている状態と考えられます。';
+      let recs = ['バランスの良い食事を心がける', '適度な運動を続ける', '十分な睡眠を取る'];
+
+      // Red/Dark red - Heat (熱)
+      if (r > 180 && g < 120 && b < 120) {
+        condition = 'heat';
+        title = '赤色（熱証）';
+        description = '舌が赤みを帯びています。体内に熱がこもっている可能性があります。炎症、のぼせ、口の渇きなどが考えられます。';
+        recs = ['辛いもの・脂っこいものを控える', '水分を十分に取る', '涼しい環境で過ごす', 'ストレスを減らす'];
+      }
+      // Pale - Cold/Deficiency (寒・虚)
+      else if (r < 140 && g < 130 && v < 70) {
+        condition = 'cold';
+        title = '淡白色（寒証・虚証）';
+        description = '舌の色が淡いです。体の冷え、気血の不足、疲労が考えられます。貧血や体力低下の可能性も。';
+        recs = ['体を温める食事（生姜、根菜類）', '冷たい飲食物を控える', '十分な休息を取る', '軽い運動で血行を促進'];
+      }
+      // Purple/Dark - Blood stagnation (瘀血)
+      else if ((h >= 260 && h <= 320 && v < 55) || (r < 130 && b > r && b > g && v < 60)) {
+        condition = 'stagnation';
+        title = '暗紫色（瘀血）';
+        description = '舌に紫がかった色が見られます。血行不良、血液の停滞が考えられます。肩こり、冷え、痛みなどに注意。';
+        recs = ['血行を良くする食材（玉ねぎ、にんにく）', '適度な運動で血流を改善', '入浴で体を温める', 'ストレッチを習慣に'];
+      }
+      // Slightly red - Mild heat
+      else if (r > 160 && r > g && r > b) {
+        condition = 'heat';
+        title = 'やや赤色（軽い熱）';
+        description = '舌に軽い赤みがあります。少し熱がこもっている可能性があります。';
+        recs = ['水分補給を心がける', '刺激の強い食事を控える', '十分な睡眠を取る'];
+      }
+
+      return {
+        condition,
+        title,
+        description,
+        recommendations: recs,
+        analysis
+      };
+    }
+
+    async function startCamera() {
+      try {
+        errorMsg.style.display = 'none';
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
+        });
+        video.srcObject = stream;
+        captureBtn.disabled = false;
+        startBtn.textContent = 'カメラ起動済み';
+        startBtn.disabled = true;
+      } catch (err) {
+        startBtn.textContent = 'カメラを起動';
+        startBtn.disabled = false;
+        errorMsg.textContent = 'カメラにアクセスできません。ブラウザの設定でカメラの許可を確認してください。';
+        errorMsg.style.display = 'block';
+      }
+    }
+
+    function captureAndAnalyze() {
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      capturedImg.src = canvas.toDataURL('image/jpeg', 0.9);
+      capturedImg.style.transform = 'scaleX(-1)';
+
+      const analysis = analyzeTongueImage(canvas);
+      if (!analysis) {
+        errorMsg.textContent = '舌の領域を検出できませんでした。舌を枠内に合わせてもう一度お試しください。';
+        errorMsg.style.display = 'block';
+        return;
+      }
+
+      const diagnosis = diagnoseTongue(analysis);
+
+      diagnosisResult.innerHTML = `
+        <div class="diagnosis-card ${diagnosis.condition}">
+          <div class="diagnosis-title">
+            <span class="color-indicator" style="background: ${diagnosis.analysis.colorHex}"></span>
+            ${diagnosis.title}
+          </div>
+          <div class="diagnosis-desc">${diagnosis.description}</div>
+        </div>
+      `;
+
+      statsGrid.innerHTML = `
+        <div class="stat-item">
+          <div class="stat-value">R ${diagnosis.analysis.rgb.r}</div>
+          <div class="stat-label">赤</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">G ${diagnosis.analysis.rgb.g}</div>
+          <div class="stat-label">緑</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">B ${diagnosis.analysis.rgb.b}</div>
+          <div class="stat-label">青</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">${Math.round(diagnosis.analysis.hsv.h)}°</div>
+          <div class="stat-label">色相</div>
+        </div>
+      `;
+
+      recommendations.innerHTML = `
+        <h3>おすすめの養生法</h3>
+        <ul>
+          ${diagnosis.recommendations.map(r => `<li>${r}</li>`).join('')}
+        </ul>
+      `;
+
+      resultSection.classList.add('visible');
+      retakeBtn.style.display = 'inline-block';
+    }
+
+    function retake() {
+      resultSection.classList.remove('visible');
+      retakeBtn.style.display = 'none';
+    }
+
+    startBtn.addEventListener('click', startCamera);
+    captureBtn.addEventListener('click', captureAndAnalyze);
+    retakeBtn.addEventListener('click', retake);
+
+    // Auto-start camera on load
+    window.addEventListener('load', () => {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        startCamera();
+      }
+    });
+  </script>
+</body>
+</html>
