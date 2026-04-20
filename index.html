@@ -214,6 +214,54 @@
       line-height: 1.6;
     }
 
+    .tcm-detail {
+      margin-top: 1.1rem;
+      padding-top: 1rem;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .tcm-detail-title {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--accent);
+      letter-spacing: 0.04em;
+      margin-bottom: 0.75rem;
+    }
+
+    .tcm-section {
+      margin-bottom: 0.95rem;
+    }
+
+    .tcm-section:last-of-type {
+      margin-bottom: 0;
+    }
+
+    .tcm-section h4 {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin: 0 0 0.35rem 0;
+      line-height: 1.4;
+    }
+
+    .tcm-section p {
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+      line-height: 1.75;
+      margin: 0;
+    }
+
+    .tcm-disclaimer {
+      margin-top: 0.85rem;
+      padding: 0.65rem 0.75rem;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      line-height: 1.65;
+      background: rgba(0,0,0,0.2);
+      border-radius: 8px;
+      border-left: 3px solid rgba(232, 184, 109, 0.35);
+    }
+
     .color-indicator {
       width: 24px;
       height: 24px;
@@ -421,20 +469,19 @@
       };
     }
 
+    const TCM_DISCLAIMER = '舌診は望診の一つで、舌の色・形・苔などを総合して判断します。本アプリは撮影画像の色の傾向のみを示す参考情報であり、証の確定や治療方針の代わりにはなりません。気になる症状がある場合は、必ず医療機関を受診してください。';
+
     // TCM-based tongue diagnosis (strict mode: より厳格な判定で誤診を防止)
     function diagnoseTongue(analysis) {
       const { hsv, rgb } = analysis;
       const { h, s, v } = hsv;
       const { r, g, b } = rgb;
 
-      // Neutral/white detection: 白・灰・照明の影響を広く判定
       const maxRGB = Math.max(r, g, b);
       const minRGB = Math.min(r, g, b);
       const colorSpread = maxRGB - minRGB;
 
-      // 彩度低・RGB均一 → 白・灰・ベージュ（健康とみなす）
       const isNeutral = s < 25 && colorSpread < 55;
-      // 明るい白っぽい領域
       const isBrightNeutral = v > 70 && s < 32 && colorSpread < 65;
 
       if (isNeutral || isBrightNeutral) {
@@ -442,52 +489,127 @@
           condition: 'healthy',
           title: '淡紅色（健康）',
           description: '検出された色は中性に近く、正常な淡紅色の範囲内です。舌を枠内にしっかり入れて撮影すると、より正確な診断ができます。',
+          tcmDetail: [
+            {
+              heading: '中医学における「淡紅舌」',
+              text: '正常な舌色は「淡紅舌」と呼ばれ、やや淡い赤みを帯びた状態です。心は舌の苗（あらわれ）とされ、血が舌に十分に栄養を届けていると、舌は柔らかく淡紅色に見えます。気血が調い、臓腑の働きが概ね均衡しているときの舌象とされます。'
+            },
+            {
+              heading: '今回の読み取りについて',
+              text: '画像上は彩度が低く、赤・緑・青の差が小さい「中性に近い色」が検出されました。白い紙や照明の反射、撮影環境の影響で舌本来の色が十分に写っていない可能性があります。そのため、参考として「健康に近い範囲」としています。'
+            },
+            {
+              heading: '舌診で併せて見るポイント（参考）',
+              text: '臨床では舌の形（肥満・痩削）、舌質（乾燥・潤い）、舌苔の有無・厚薄・色も重要です。色だけでは証を断定できません。自然光に近い明るさで、舌をやや出して舌面全体が写るようにすると、舌診に近い観察がしやすくなります。'
+            }
+          ],
+          disclaimer: TCM_DISCLAIMER,
           recommendations: ['バランスの良い食事を心がける', '適度な運動を続ける', '十分な睡眠を取る'],
           analysis
         };
       }
 
-      // デフォルトは健康。明確な証拠がある場合のみ異常と判定
       let condition = 'healthy';
       let title = '淡紅色（健康）';
       let description = '舌の色は正常な淡紅色です。気血の巡りが良好で、体のバランスが取れている状態と考えられます。';
       let recs = ['バランスの良い食事を心がける', '適度な運動を続ける', '十分な睡眠を取る'];
+      let tcmDetail = [
+        {
+          heading: '淡紅舌と病機のイメージ',
+          text: '淡紅舌は、気・血・陰液が舌体を涵養（うるおして養う）できている状態の目安です。心主血脉（血の循環を司る）の観点では、血が比較的充足し、熱邪や寒邪が舌色に強く表れていないと解釈されます。もっとも、疲労やストレスは舌苔や舌形に出ることも多く、色だけで「完全に健康」とは限りません。'
+        },
+        {
+          heading: '養生の基本',
+          text: '「治未病」の考えでは、平常時から食・睡眠・情志（感情）を整え、脾胃（消化吸収の中心）を守ることが重視されます。舌色が安定しているときも、規則正しい生活と適度な運動が望ましいです。'
+        }
+      ];
 
       const redDominance = (r - g) + (r - b);
 
-      // 赤色（熱証）: 非常に明確な赤のみ
       if (r > 195 && g < 105 && b < 105 && redDominance > 120 && s > 30) {
         condition = 'heat';
         title = '赤色（熱証）';
         description = '舌が赤みを帯びています。体内に熱がこもっている可能性があります。炎症、のぼせ、口の渇きなどが考えられます。';
         recs = ['辛いもの・脂っこいものを控える', '水分を十分に取る', '涼しい環境で過ごす', 'ストレスを減らす'];
-      }
-      // 淡白色（寒証・虚証）: 明確な淡さ
-      else if (r < 130 && g < 120 && v < 65 && colorSpread < 40) {
+        tcmDetail = [
+          {
+            heading: '赤舌と「熱」の中医学',
+            text: '舌が赤く見える場合、実証では外感熱邪（風熱・暑熱など）や五志・食事からくる内熱が、虚証では陰虚により相対的に陽が亢進し「虚熱」として現れることがあります。赤みの強さ・部位（舌尖は心・心包、舌辺は肝・胆の関与が説かれることも）や、舌体の乾燥・亀裂と合わせて区別します。'
+          },
+          {
+            heading: 'よくある身体の反応（目安）',
+            text: '実熱に近い場合は口渇、好冷飲、便秘、顔面の赤み、煩躁などが重なることがあります。陰虚火旺では、五心煩熱（手足心と胸のほてり）、盗汗、咽乾などが話題に上がることがあります。いずれも一般論であり、個人差があります。'
+          },
+          {
+            heading: '養生の方向性',
+            text: '実熱傾向では辛香燥烈・酒の過剰を避け、清涼で消化にやさしい食に寄せる考え方があります。虚熱では、陰液を損ないやすい夜更かしや過労を減らすことが重視されます。具体的な漢方薬・針灸は、必ず資格を持つ医師・鍼灸師の診断のもとで行ってください。'
+          }
+        ];
+      } else if (r < 130 && g < 120 && v < 65 && colorSpread < 40) {
         condition = 'cold';
         title = '淡白色（寒証・虚証）';
         description = '舌の色が淡いです。体の冷え、気血の不足、疲労が考えられます。貧血や体力低下の可能性も。';
         recs = ['体を温める食事（生姜、根菜類）', '冷たい飲食物を控える', '十分な休息を取る', '軽い運動で血行を促進'];
-      }
-      // 暗紫色（瘀血）: 紫が明確な場合のみ
-      else if ((h >= 265 && h <= 315 && v < 50 && s > 25) || (r < 115 && g < 100 && b > r + 15 && v < 55)) {
+        tcmDetail = [
+          {
+            heading: '淡白舌の意味',
+            text: '舌色が淡く白みがちな「淡白舌」は、気虚・血虚・陽虚のいずれか、または寒邪により陽気が舌を温めきれない状態で見られることがあります。脾胃の運化（消化・吸収）が弱まり、気血の生産が追いつかないと、舌に血の色が十分に現れにくくなります。'
+          },
+          {
+            heading: '寒と虚の見分けのヒント',
+            text: '寒証では舌苔が白く潤っていることが多く、陽虚では舌が淡胖（ふくらみ）や歯痕（かんこん）を伴うことがあります。血虚では唇・爪の色も淡い傾向が話題にされます。色の情報だけでは証型は特定できませんが、「陽気と気血が舌に届きにくい」というイメージで捉えるとよいでしょう。'
+          },
+          {
+            heading: '養生の考え方',
+            text: '生冷（生もの・冷たいもの）を避け、温かく煮た食事で脾胃をいたわる考え方があります。軽い運動や入浴で血行を促し、十分な休息で気を養うことも重要です。貧血や甲状腺疾患など、西洋医学的な要因の鑑別が必要な場合もあるため、症状が続く場合は受診をおすすめします。'
+          }
+        ];
+      } else if ((h >= 265 && h <= 315 && v < 50 && s > 25) || (r < 115 && g < 100 && b > r + 15 && v < 55)) {
         condition = 'stagnation';
         title = '暗紫色（瘀血）';
         description = '舌に紫がかった色が見られます。血行不良、血液の停滞が考えられます。肩こり、冷え、痛みなどに注意。';
         recs = ['血行を良くする食材（玉ねぎ、にんにく）', '適度な運動で血流を改善', '入浴で体を温める', 'ストレッチを習慣に'];
-      }
-      // やや赤色: 赤の優位性を厳格に
-      else if ((r - g) > 55 && (r - b) > 55 && s > 28 && redDominance > 90) {
+        tcmDetail = [
+          {
+            heading: '紫舌と瘀血（おけつ）',
+            text: '舌が青紫・暗紫に見えることは、瘀血（血の流れが滞り、脈外に瘀れる状態）や、重度の気滞・寒凝により血行が障害されている可能性を示唆します。気の滞りが血を動かさなくなり「気滞血瘀」、寒が脈を凝らし「寒凝血瘀」など、病機は複数あります。'
+          },
+          {
+            heading: '身体所見との関連（一般論）',
+            text: '瘀血の証では、固定性の刺痛、皮膚の甲錯（かくそう）、紫斑、月経困難症などが参考になります。舌に瘀点・瘀斑（点状・斑状の出血色）がある場合は、瘀血の根拠がより強くなります。本アプリは色の傾向のみのため、点・斑の有無は目視で確認してください。'
+          },
+          {
+            heading: '養生と注意',
+            text: '適度な有酸素運動とストレッチで血流を促し、長時間の同一姿勢を避けることが勧められます。瘀血の治療は活血祛瘀（けっちゅうをおとす）などの方剤が用いられることがありますが、妊娠中・出血傾向・抗凝固薬の服用中などは自己判断で活血作用の強い食材やサプリを増やさないでください。医師に相談ください。'
+          }
+        ];
+      } else if ((r - g) > 55 && (r - b) > 55 && s > 28 && redDominance > 90) {
         condition = 'heat';
         title = 'やや赤色（軽い熱）';
         description = '舌に軽い赤みがあります。少し熱がこもっている可能性があります。';
         recs = ['水分補給を心がける', '刺激の強い食事を控える', '十分な睡眠を取る'];
+        tcmDetail = [
+          {
+            heading: 'やや赤い舌の解釈',
+            text: '舌尖や舌辺がやや赤く見える場合、心火上炎（しんかじょうえん）や肝郁化熱（かんうつかねつ）など、軽度の熱や情志の不調が関与することがあります。実熱に比べると陰液の損傷は限定的なことも多く、生活の乱れ（睡眠不足、辛味・焼き物の過剰）で一時的に出ることもあります。'
+          },
+          {
+            heading: '他の舌象との合参',
+            text: '熱の深さや病位は、舌苔の黄厚・乾燥、脈の数（はやさ）などと合わせて判断します。舌が赤くても舌苔が白く潤っている場合は、表証や寒熱錯雑など別の解釈もあり得ます。アプリの結果は「色のやや赤み」に基づく参考です。'
+          },
+          {
+            heading: '養生のすすめ',
+            text: '十分な水分、規則正しい睡眠、刺激性の少ない食事で、脾胃と肝の負担を減らすことが基本です。ストレスをため込まない工夫（呼吸法・軽い散歩）も舌診上よく勧められます。'
+          }
+        ];
       }
 
       return {
         condition,
         title,
         description,
+        tcmDetail,
+        disclaimer: TCM_DISCLAIMER,
         recommendations: recs,
         analysis
       };
@@ -532,6 +654,14 @@
 
       const diagnosis = diagnoseTongue(analysis);
 
+      const tcmBlocksHtml = (diagnosis.tcmDetail || []).map(function (block) {
+        return '<div class="tcm-section"><h4>' + block.heading + '</h4><p>' + block.text + '</p></div>';
+      }).join('');
+
+      const disclaimerHtml = diagnosis.disclaimer
+        ? '<p class="tcm-disclaimer">' + diagnosis.disclaimer + '</p>'
+        : '';
+
       diagnosisResult.innerHTML = `
         <div class="diagnosis-card ${diagnosis.condition}">
           <div class="diagnosis-title">
@@ -539,6 +669,11 @@
             ${diagnosis.title}
           </div>
           <div class="diagnosis-desc">${diagnosis.description}</div>
+          <div class="tcm-detail">
+            <div class="tcm-detail-title">中医学による解説</div>
+            ${tcmBlocksHtml}
+            ${disclaimerHtml}
+          </div>
         </div>
       `;
 
