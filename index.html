@@ -482,8 +482,8 @@
       if (h >= 70 && h <= 170 && s > 18 && g >= r) return false;
       if (h >= 170 && h <= 255 && s > 18 && v > 40) return false;
       if (h >= 40 && h <= 70 && s > 28 && r > b && g > b && (g - b) > (r - g)) return false;
-      const redish = r + 8 >= g && r + 8 >= b && (r - Math.min(g, b)) >= 18;
-      const darkPurple = h >= 255 && h <= 330 && v < 58 && s > 18;
+      const redish = r >= 145 && (r - g) >= 22 && (r - b) >= 25 && s >= 16 && v >= 32 && v <= 94;
+      const darkPurple = r < 145 && h >= 255 && h <= 330 && v < 58 && s > 18 && b + 8 >= r;
       return redish || darkPurple;
     }
 
