@@ -93,6 +93,7 @@
       height: 100%;
       object-fit: cover;
       transform: scaleX(-1);
+      background: #000;
     }
 
     .tongue-guide {
@@ -371,9 +372,11 @@
       <div id="errorMsg" class="error-msg" style="display: none;"></div>
 
       <div class="controls">
-        <button id="startBtn" class="btn-primary">カメラを起動</button>
-        <button id="captureBtn" class="btn-primary" disabled>診断する</button>
-        <button id="retakeBtn" class="btn-secondary" style="display: none;">撮り直す</button>
+        <button id="startBtn" class="btn-primary" type="button">カメラを起動</button>
+        <button id="captureBtn" class="btn-primary" type="button" disabled>診断する</button>
+        <button id="fileBtn" class="btn-secondary" type="button">画像を選ぶ</button>
+        <button id="retakeBtn" class="btn-secondary" type="button" style="display: none;">撮り直す</button>
+        <input id="fileInput" type="file" accept="image/png,image/jpeg,image/webp" hidden>
       </div>
     </section>
 
@@ -393,6 +396,8 @@
     const video = document.getElementById('video');
     const startBtn = document.getElementById('startBtn');
     const captureBtn = document.getElementById('captureBtn');
+    const fileBtn = document.getElementById('fileBtn');
+    const fileInput = document.getElementById('fileInput');
     const retakeBtn = document.getElementById('retakeBtn');
     const errorMsg = document.getElementById('errorMsg');
     const resultSection = document.getElementById('resultSection');
@@ -429,8 +434,8 @@
       const h = canvas.height;
       const cx = w / 2;
       const cy = h / 2;
-      const rx = w * 0.25;
-      const ry = h * 0.2;
+      const rx = w * 0.30;
+      const ry = h * 0.225;
 
       const imageData = ctx.getImageData(0, 0, w, h);
       const data = imageData.data;
@@ -467,6 +472,31 @@
         hsv,
         colorHex: '#' + [avgR, avgG, avgB].map(x => x.toString(16).padStart(2, '0')).join('')
       };
+    }
+
+    function looksLikeTongue(analysis) {
+      const { h, s, v } = analysis.hsv;
+      const { r, g, b } = analysis.rgb;
+      const spread = Math.max(r, g, b) - Math.min(r, g, b);
+      if (s < 18 && spread < 40) return false;
+      if (h >= 70 && h <= 170 && s > 18 && g >= r) return false;
+      if (h >= 170 && h <= 255 && s > 18 && v > 40) return false;
+      if (h >= 40 && h <= 70 && s > 28 && r > b && g > b && (g - b) > (r - g)) return false;
+      const redish = r + 8 >= g && r + 8 >= b && (r - Math.min(g, b)) >= 18;
+      const darkPurple = h >= 255 && h <= 330 && v < 58 && s > 18;
+      return redish || darkPurple;
+    }
+
+    function showError(message) {
+      errorMsg.textContent = message;
+      errorMsg.style.display = 'block';
+      resultSection.classList.remove('visible');
+      retakeBtn.style.display = 'none';
+    }
+
+    function clearError() {
+      errorMsg.textContent = '';
+      errorMsg.style.display = 'none';
     }
 
     const TCM_DISCLAIMER = '舌診は望診の一つで、舌の色・形・苔などを総合して判断します。本アプリは撮影画像の色の傾向のみを示す参考情報であり、証の確定や治療方針の代わりにはなりません。気になる症状がある場合は、必ず医療機関を受診してください。';
@@ -616,42 +646,66 @@
     }
 
     async function startCamera() {
-      try {
-        errorMsg.style.display = 'none';
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
-        });
-        video.srcObject = stream;
-        captureBtn.disabled = false;
-        startBtn.textContent = 'カメラ起動済み';
-        startBtn.disabled = true;
-      } catch (err) {
-        startBtn.textContent = 'カメラを起動';
-        startBtn.disabled = false;
-        errorMsg.textContent = 'カメラにアクセスできません。ブラウザの設定でカメラの許可を確認してください。';
-        errorMsg.style.display = 'block';
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        showError('このブラウザではカメラを使えません。下の「画像を選ぶ」から舌の写真を選んでください。');
+        return;
       }
+      const attempts = [
+        { video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } },
+        { video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } } },
+        { video: true }
+      ];
+      clearError();
+      for (const constraints of attempts) {
+        try {
+          if (stream) stream.getTracks().forEach((track) => track.stop());
+          stream = await navigator.mediaDevices.getUserMedia(constraints);
+          video.srcObject = stream;
+          await video.play();
+          captureBtn.disabled = !(video.videoWidth > 0 && video.videoHeight > 0);
+          startBtn.textContent = 'カメラ起動済み';
+          startBtn.disabled = true;
+          return;
+        } catch (err) {
+        }
+      }
+      startBtn.textContent = 'カメラを起動';
+      startBtn.disabled = false;
+      captureBtn.disabled = true;
+      showError('カメラにアクセスできません。ブラウザの許可を確認するか、「画像を選ぶ」から舌の写真を選んでください。');
     }
 
-    function captureAndAnalyze() {
+    function drawCover(source, sourceWidth, sourceHeight, mirror) {
       const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      canvas.width = 640;
+      canvas.height = 480;
       const ctx = canvas.getContext('2d');
-      ctx.translate(canvas.width, 0);
-      ctx.scale(-1, 1);
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const scale = Math.max(canvas.width / sourceWidth, canvas.height / sourceHeight);
+      const dw = sourceWidth * scale;
+      const dh = sourceHeight * scale;
+      const dx = (canvas.width - dw) / 2;
+      const dy = (canvas.height - dh) / 2;
+      if (mirror) {
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(source, canvas.width - dx - dw, dy, dw, dh);
+      } else {
+        ctx.drawImage(source, dx, dy, dw, dh);
+      }
+      return canvas;
+    }
 
+    function presentDiagnosis(canvas, mirrorPreview) {
       capturedImg.src = canvas.toDataURL('image/jpeg', 0.9);
-      capturedImg.style.transform = 'scaleX(-1)';
+      capturedImg.style.transform = mirrorPreview ? 'scaleX(-1)' : 'none';
 
       const analysis = analyzeTongueImage(canvas);
-      if (!analysis) {
-        errorMsg.textContent = '舌の領域を検出できませんでした。舌を枠内に合わせてもう一度お試しください。';
-        errorMsg.style.display = 'block';
+      if (!analysis || !looksLikeTongue(analysis)) {
+        showError('舌が枠の中に写っていません。明るい場所で舌を出し、点線の枠に合わせてもう一度撮影してください。');
         return;
       }
 
+      clearError();
       const diagnosis = diagnoseTongue(analysis);
 
       const tcmBlocksHtml = (diagnosis.tcmDetail || []).map(function (block) {
@@ -705,12 +759,44 @@
 
       resultSection.classList.add('visible');
       retakeBtn.style.display = 'inline-block';
+      resultSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function captureAndAnalyze() {
+      if (!video.videoWidth || !video.videoHeight) {
+        showError('カメラ映像の準備ができていません。少し待ってから、もう一度診断してください。');
+        return;
+      }
+      presentDiagnosis(drawCover(video, video.videoWidth, video.videoHeight, true), true);
     }
 
     function retake() {
       resultSection.classList.remove('visible');
       retakeBtn.style.display = 'none';
+      clearError();
     }
+
+    fileBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files && fileInput.files[0];
+      fileInput.value = '';
+      if (!file) return;
+      if (!file.type.startsWith('image/')) {
+        showError('画像ファイルを選んでください。');
+        return;
+      }
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        presentDiagnosis(drawCover(img, img.naturalWidth, img.naturalHeight, false), false);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        showError('画像を読み込めませんでした。別の写真でもう一度お試しください。');
+      };
+      img.src = url;
+    });
 
     startBtn.addEventListener('click', startCamera);
     captureBtn.addEventListener('click', captureAndAnalyze);
